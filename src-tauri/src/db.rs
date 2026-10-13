@@ -1,6 +1,6 @@
 use std::path::Path;
 use rusqlite::{params, Connection, Result};
-use crate::models::{AppSettings, BackupLog, DashboardStats, FileRecord, FileVersion, SourceFolder};
+use crate::models::{AppSettings, BackupLog, FileRecord, FileVersion, SourceFolder};
 use chrono::Local;
 
 pub struct Database {

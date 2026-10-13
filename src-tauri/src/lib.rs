@@ -27,7 +27,7 @@ pub struct AppState {
 // ---------------- TAURI IPC COMMANDS ----------------
 
 #[tauri::command]
-pub fn get_dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats, String> {
+fn get_dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let settings = db.get_settings().map_err(|e| e.to_string())?;
     let (total_files, total_bytes, pending, errors, last_scan) =
@@ -61,13 +61,13 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats,
 }
 
 #[tauri::command]
-pub fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
+fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_settings().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn save_settings(settings: AppSettings, state: State<'_, AppState>) -> Result<(), String> {
+fn save_settings(settings: AppSettings, state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.save_settings(&settings).map_err(|e| e.to_string())?;
     state
@@ -80,13 +80,13 @@ pub fn save_settings(settings: AppSettings, state: State<'_, AppState>) -> Resul
 }
 
 #[tauri::command]
-pub fn get_source_folders(state: State<'_, AppState>) -> Result<Vec<SourceFolder>, String> {
+fn get_source_folders(state: State<'_, AppState>) -> Result<Vec<SourceFolder>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_source_folders().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn add_source_folder(path: String, state: State<'_, AppState>) -> Result<i64, String> {
+fn add_source_folder(path: String, state: State<'_, AppState>) -> Result<i64, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let path_clean = path.trim();
     if path_clean.is_empty() {
@@ -118,19 +118,19 @@ pub fn add_source_folder(path: String, state: State<'_, AppState>) -> Result<i64
 }
 
 #[tauri::command]
-pub fn remove_source_folder(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+fn remove_source_folder(id: i64, state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.remove_source_folder(id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn clear_source_folders(state: State<'_, AppState>) -> Result<(), String> {
+fn clear_source_folders(state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.clear_source_folders().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn start_backup_manual(app_handle: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+fn start_backup_manual(app_handle: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let engine = Arc::clone(&state.engine);
     let db_arc = Arc::clone(&state.db);
 
@@ -174,13 +174,13 @@ pub fn start_backup_manual(app_handle: AppHandle, state: State<'_, AppState>) ->
 }
 
 #[tauri::command]
-pub fn cancel_backup(state: State<'_, AppState>) -> Result<(), String> {
+fn cancel_backup(state: State<'_, AppState>) -> Result<(), String> {
     state.engine.cancel();
     Ok(())
 }
 
 #[tauri::command]
-pub fn toggle_auto_backup(active: bool, state: State<'_, AppState>) -> Result<(), String> {
+fn toggle_auto_backup(active: bool, state: State<'_, AppState>) -> Result<(), String> {
     state.is_auto_active.store(active, Ordering::SeqCst);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let mut settings = db.get_settings().map_err(|e| e.to_string())?;
@@ -190,31 +190,31 @@ pub fn toggle_auto_backup(active: bool, state: State<'_, AppState>) -> Result<()
 }
 
 #[tauri::command]
-pub fn get_logs(limit: Option<i64>, state: State<'_, AppState>) -> Result<Vec<BackupLog>, String> {
+fn get_logs(limit: Option<i64>, state: State<'_, AppState>) -> Result<Vec<BackupLog>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_logs(limit.unwrap_or(100)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn clear_logs(state: State<'_, AppState>) -> Result<(), String> {
+fn clear_logs(state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.clear_logs().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn get_file_versions(state: State<'_, AppState>) -> Result<Vec<FileVersion>, String> {
+fn get_file_versions(state: State<'_, AppState>) -> Result<Vec<FileVersion>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_all_file_versions().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn restore_file_version(req: RestoreRequest, state: State<'_, AppState>) -> Result<RestoreResult, String> {
+fn restore_file_version(req: RestoreRequest, state: State<'_, AppState>) -> Result<RestoreResult, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     BackupEngine::restore_version(&db, &req)
 }
 
 fn get_disk_space_internal(path_str: &str) -> (f64, f64) {
-    let mut sys = sysinfo::Disks::new_with_refreshed_list();
+    let sys = sysinfo::Disks::new_with_refreshed_list();
     let target_path = std::path::Path::new(path_str);
 
     for disk in &sys {
