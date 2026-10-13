@@ -1,0 +1,6 @@
+{
+  "name": "Rust AutoBackup",
+  "description": "Rust ve Tauri 2 ile geliştirilmiş modern, güvenli ve sürüm korumalı otomatik Windows dosya yedekleme sistemi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

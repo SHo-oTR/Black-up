@@ -1,0 +1,36 @@
+[package]
+name = "rust-auto-backup"
+version = "1.0.0"
+description = "Modern ve Güvenli Windows Otomatik Dosya Yedekleme Uygulaması"
+authors = ["Kadir Karahan <kadir.karahan2009@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/example/rust-auto-backup"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0.0", features = ["tray-icon"] }
+tauri-plugin-dialog = "2.0.0"
+tauri-plugin-shell = "2.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+sha2 = "0.10.8"
+chrono = { version = "0.4.38", features = ["serde"] }
+walkdir = "2.5.0"
+tokio = { version = "1.40", features = ["full"] }
+sysinfo = "0.31.4"
+log = "0.4.22"
+env_logger = "0.11.5"
+
+[dev-dependencies]
+tempfile = "3.12.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
