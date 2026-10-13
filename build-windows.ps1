@@ -35,7 +35,7 @@ Write-Host "Rust bulundu: $cargoVer" -ForegroundColor Green
 
 # 3. Ön yüz paketlerinin hazırlanması
 Write-Host "[3/5] Ön yüz bağımlılıkları kuruluyor ve derleniyor..." -ForegroundColor Yellow
-npm install
+npm install --legacy-peer-deps
 npm run build
 Write-Host "Ön yüz derlendi." -ForegroundColor Green
 
