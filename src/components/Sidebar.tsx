@@ -9,7 +9,7 @@ import {
   Cpu,
 } from 'lucide-react';
 
-export type TabType = 'overview' | 'settings' | 'versions' | 'logs' | 'tests';
+export type TabType = 'overview' | 'settings' | 'versions' | 'logs';
 
 interface SidebarProps {
   currentTab: TabType;
@@ -51,12 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: FileText,
       badge: errorCount > 0 ? `${errorCount} hata` : null,
       badgeAlert: errorCount > 0,
-    },
-    {
-      id: 'tests' as TabType,
-      label: '12 Test Senaryosu',
-      icon: CheckCircle2,
-      badge: 'Rust Doğrulama',
     },
   ];
 

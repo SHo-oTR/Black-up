@@ -340,8 +340,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <div className="p-3 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 text-xs text-indigo-900 dark:text-indigo-200 flex items-start gap-2.5">
             <Info className="w-4 h-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
             <div>
-              <span className="font-semibold">Hedef Yapısı: </span>
-              Dosyalar hedefte <code className="font-mono bg-white/50 dark:bg-black/30 px-1 py-0.5 rounded">kaynak_ID/guncel</code> ve <code className="font-mono bg-white/50 dark:bg-black/30 px-1 py-0.5 rounded">kaynak_ID/surumler</code> hiyerarşisinde güvenle saklanır. Farklı kaynaklardaki aynı isimli dosyalar asla çakışmaz.
+              <span className="font-semibold">Hedef Klasör ve Dosya Yapısı: </span>
+              Yedeklenen dosyalar hedefte <code className="font-mono bg-white/50 dark:bg-black/30 px-1 py-0.5 rounded">[Hedef] \ [Klasör_Adı] \ [Dosya_Adı]</code> şeklinde gerçek isimleriyle saklanır. Önceki sürümler ise aynı klasör altındaki <code className="font-mono bg-white/50 dark:bg-black/30 px-1 py-0.5 rounded">surumler</code> dizininde zaman damgasıyla güvenle arşivlenir.
             </div>
           </div>
         </div>

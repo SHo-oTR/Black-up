@@ -197,6 +197,44 @@ export const tauriBridge = {
     return mockStorage.getFileVersions();
   },
 
+  async deleteFileVersion(id: number): Promise<void> {
+    if (isTauriEnvironment()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('delete_file_version', { id });
+        return;
+      } catch (err) {
+        console.warn('Tauri invoke error, falling back to mock storage:', err);
+      }
+    }
+    mockStorage.deleteVersion(id);
+  },
+
+  async clearAllFileVersions(): Promise<void> {
+    if (isTauriEnvironment()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('clear_all_file_versions');
+        return;
+      } catch (err) {
+        console.warn('Tauri invoke error, falling back to mock storage:', err);
+      }
+    }
+    mockStorage.clearAllVersions();
+  },
+
+  async cleanOldVersions(keepLast = 1): Promise<number> {
+    if (isTauriEnvironment()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        return await invoke<number>('clean_old_versions', { keepLast });
+      } catch (err) {
+        console.warn('Tauri invoke error, falling back to mock storage:', err);
+      }
+    }
+    return mockStorage.cleanOldVersions(keepLast);
+  },
+
   async restoreFileVersion(req: RestoreRequest): Promise<RestoreResult> {
     if (isTauriEnvironment()) {
       try {
@@ -207,10 +245,6 @@ export const tauriBridge = {
       }
     }
     return mockStorage.restoreVersion(req);
-  },
-
-  async runTestSuite(onUpdate: (idx: number, name: string, status: 'running' | 'passed' | 'failed', detail: string) => void): Promise<void> {
-    await mockStorage.runFull12TestSuite(onUpdate);
   },
 
   async openDirectoryDialog(): Promise<string | null> {

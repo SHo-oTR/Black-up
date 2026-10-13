@@ -292,17 +292,21 @@ impl BackupEngine {
             }
 
             // Path construction
-            // Current destination: target / kaynak_{id} / guncel / {rel_path}
+            // Destination uses source folder name and real file names directly
+            let folder_name = Path::new(&source_root)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Yedekler".to_string());
+
             let current_dest_path = target_dir
-                .join(format!("kaynak_{}", source_id))
-                .join("guncel")
+                .join(&folder_name)
                 .join(&rel_path);
 
-            // Version destination: target / kaynak_{id} / surumler / {rel_path}_{timestamp}.bak
+            // Version destination: target / {folder_name} / surumler / {rel_path}_{timestamp}.bak
             let timestamp_suffix = Local::now().format("%Y%m%d_%H%M%S").to_string();
             let version_filename = format!("{}_{}.bak", rel_path.replace(['/', '\\'], "_"), timestamp_suffix);
             let version_dest_path = target_dir
-                .join(format!("kaynak_{}", source_id))
+                .join(&folder_name)
                 .join("surumler")
                 .join(&version_filename);
 

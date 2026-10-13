@@ -97,7 +97,7 @@ const INITIAL_VERSIONS: FileVersion[] = [
     source_path: 'C:\\Sirket_Belgeleri\\Mali_Tablolar_2026.xlsx',
     relative_path: 'Mali_Tablolar_2026.xlsx',
     version_number: 1,
-    backup_file_path: 'D:\\Kurumsal_Yedekler\\kaynak_1\\surumler\\Mali_Tablolar_2026.xlsx_20260310_093500.bak',
+    backup_file_path: 'D:\\Kurumsal_Yedekler\\Sirket_Belgeleri\\surumler\\Mali_Tablolar_2026_20260310_093500.bak',
     file_size: 485120,
     modified_time: '2026-03-10 09:30:00',
     backup_time: '2026-03-10 09:35:00',
@@ -110,7 +110,7 @@ const INITIAL_VERSIONS: FileVersion[] = [
     source_path: 'C:\\Sirket_Belgeleri\\Mali_Tablolar_2026.xlsx',
     relative_path: 'Mali_Tablolar_2026.xlsx',
     version_number: 2,
-    backup_file_path: 'D:\\Kurumsal_Yedekler\\kaynak_1\\surumler\\Mali_Tablolar_2026.xlsx_20260312_114000.bak',
+    backup_file_path: 'D:\\Kurumsal_Yedekler\\Sirket_Belgeleri\\surumler\\Mali_Tablolar_2026_20260312_114000.bak',
     file_size: 512400,
     modified_time: '2026-03-12 11:38:00',
     backup_time: '2026-03-12 11:40:00',
@@ -123,7 +123,7 @@ const INITIAL_VERSIONS: FileVersion[] = [
     source_path: 'C:\\Sirket_Belgeleri\\Musteri_Sozlesmeleri.pdf',
     relative_path: 'Musteri_Sozlesmeleri.pdf',
     version_number: 1,
-    backup_file_path: 'D:\\Kurumsal_Yedekler\\kaynak_1\\surumler\\Musteri_Sozlesmeleri.pdf_20260311_150000.bak',
+    backup_file_path: 'D:\\Kurumsal_Yedekler\\Sirket_Belgeleri\\surumler\\Musteri_Sozlesmeleri_20260311_150000.bak',
     file_size: 1420500,
     modified_time: '2026-03-11 14:50:00',
     backup_time: '2026-03-11 15:00:00',
@@ -136,7 +136,7 @@ const INITIAL_VERSIONS: FileVersion[] = [
     source_path: 'C:\\Mali_Isler_Veritabani\\muhasebe_2026.sqlite',
     relative_path: 'muhasebe_2026.sqlite',
     version_number: 1,
-    backup_file_path: 'D:\\Kurumsal_Yedekler\\kaynak_2\\surumler\\muhasebe_2026.sqlite_20260312_090000.bak',
+    backup_file_path: 'D:\\Kurumsal_Yedekler\\Mali_Isler_Veritabani\\surumler\\muhasebe_2026_20260312_090000.bak',
     file_size: 8421000,
     modified_time: '2026-03-12 08:50:00',
     backup_time: '2026-03-12 09:00:00',
@@ -149,7 +149,7 @@ const INITIAL_VERSIONS: FileVersion[] = [
     source_path: 'C:\\Mali_Isler_Veritabani\\muhasebe_2026.sqlite',
     relative_path: 'muhasebe_2026.sqlite',
     version_number: 2,
-    backup_file_path: 'D:\\Kurumsal_Yedekler\\kaynak_2\\surumler\\muhasebe_2026.sqlite_20260313_095500.bak',
+    backup_file_path: 'D:\\Kurumsal_Yedekler\\Mali_Isler_Veritabani\\surumler\\muhasebe_2026_20260313_095500.bak',
     file_size: 8940000,
     modified_time: '2026-03-13 09:50:00',
     backup_time: '2026-03-13 09:55:00',
@@ -256,11 +256,85 @@ class MockStorageService {
 
   getFileVersions(): FileVersion[] {
     const raw = localStorage.getItem(STORAGE_KEYS.VERSIONS);
+    let list: FileVersion[] = [];
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.VERSIONS, JSON.stringify(INITIAL_VERSIONS));
-      return INITIAL_VERSIONS;
+      list = INITIAL_VERSIONS;
+    } else {
+      try {
+        list = JSON.parse(raw);
+      } catch {
+        list = INITIAL_VERSIONS;
+      }
     }
-    return JSON.parse(raw);
+    // Sanitize any legacy 'kaynak_' names from previously saved sessions
+    let modified = false;
+    list = list.map(v => {
+      let bPath = v.backup_file_path;
+      let sPath = v.source_path;
+      if (bPath && /kaynak_\d+/i.test(bPath)) {
+        bPath = bPath.replace(/kaynak_1/gi, 'Sirket_Belgeleri').replace(/kaynak_2/gi, 'Mali_Isler_Veritabani').replace(/kaynak_\d+/gi, 'Belgeler');
+        modified = true;
+      }
+      if (sPath && /Kaynak_\d+/i.test(sPath)) {
+        sPath = sPath.replace(/Kaynak_1/gi, 'Sirket_Belgeleri').replace(/Kaynak_2/gi, 'Mali_Isler_Veritabani').replace(/Kaynak_\d+/gi, 'Belgeler');
+        modified = true;
+      }
+      return { ...v, backup_file_path: bPath, source_path: sPath };
+    });
+    if (modified || !raw) {
+      localStorage.setItem(STORAGE_KEYS.VERSIONS, JSON.stringify(list));
+    }
+    return list;
+  }
+
+  deleteVersion(id: number): void {
+    const versions = this.getFileVersions();
+    const target = versions.find(v => v.id === id);
+    const filtered = versions.filter(v => v.id !== id);
+    localStorage.setItem(STORAGE_KEYS.VERSIONS, JSON.stringify(filtered));
+    if (target) {
+      this.addLog('INFO', target.source_path, `Sürüm kaydı silindi: ${target.file_name} (Sürüm #${target.version_number})`);
+    }
+  }
+
+  clearAllVersions(): void {
+    const count = this.getFileVersions().length;
+    localStorage.setItem(STORAGE_KEYS.VERSIONS, JSON.stringify([]));
+    this.addLog('WARN', null, `Tüm sürüm kayıtları temizlendi (${count} adet kayıt silindi).`);
+  }
+
+  cleanOldVersions(keepLastPerFile = 1): number {
+    const versions = this.getFileVersions();
+    // Group by file_name or relative_path
+    const map = new Map<string, FileVersion[]>();
+    for (const v of versions) {
+      const key = v.source_path || v.file_name;
+      const group = map.get(key) || [];
+      group.push(v);
+      map.set(key, group);
+    }
+
+    const toKeep: FileVersion[] = [];
+    let removedCount = 0;
+
+    for (const [, group] of map.entries()) {
+      // Sort by version_number descending or backup_time descending
+      group.sort((a, b) => b.version_number - a.version_number);
+      const kept = group.slice(0, keepLastPerFile);
+      const removed = group.slice(keepLastPerFile);
+      removedCount += removed.length;
+      toKeep.push(...kept);
+    }
+
+    // Sort kept versions by backup_time descending
+    toKeep.sort((a, b) => (b.backup_time > a.backup_time ? 1 : -1));
+    localStorage.setItem(STORAGE_KEYS.VERSIONS, JSON.stringify(toKeep));
+    this.addLog(
+      'INFO',
+      null,
+      `Eski sürümler temizlendi: ${removedCount} eski sürüm kaydı kaldırıldı, güncel sürümler korundu.`
+    );
+    return removedCount;
   }
 
   getDashboardStats(): DashboardStats {
@@ -347,18 +421,27 @@ class MockStorageService {
       const isNewOrChanged = i % 2 === 0;
       if (isNewOrChanged) {
         copied++;
-        // Add new version
+        // Add new version with real folder and file names
+        const sourceFolder = sources.find(s => s.id === file.source_id) || sources[0];
+        const sourceBase = sourceFolder ? sourceFolder.path : 'C:\\Sirket_Belgeleri';
+        const folderName = sourceBase.split(/[/\\]/).filter(Boolean).pop() || 'Belgeler';
+        const fileName = file.rel.split(/[/\\]/).pop() || file.rel;
+
         const versions = this.getFileVersions();
         const nextId = Date.now() + i;
         const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const existingForThisFile = versions.filter(v => v.file_name === fileName);
+        const versionNumber = existingForThisFile.length + 1;
+
+        const timeSuffix = nowStr.replace(/[- :]/g, '').slice(0, 14);
         const newVersion: FileVersion = {
           id: nextId,
           file_record_id: 200 + i,
-          file_name: file.rel.split('/').pop() || file.rel,
-          source_path: `C:\\Kaynak_${file.source_id}\\${file.rel}`,
+          file_name: fileName,
+          source_path: `${sourceBase}\\${file.rel.replace(/\//g, '\\')}`,
           relative_path: file.rel,
-          version_number: 1,
-          backup_file_path: `${settings.target_directory}\\kaynak_${file.source_id}\\surumler\\${file.rel}_${Date.now()}.bak`,
+          version_number: versionNumber,
+          backup_file_path: `${settings.target_directory}\\${folderName}\\surumler\\${fileName}_${timeSuffix}.bak`,
           file_size: file.size,
           modified_time: nowStr,
           backup_time: nowStr,
@@ -366,7 +449,7 @@ class MockStorageService {
         };
         versions.unshift(newVersion);
         localStorage.setItem(STORAGE_KEYS.VERSIONS, JSON.stringify(versions));
-        this.addLog('SUCCESS', newVersion.source_path, `Dosya başarıyla yedeklendi: ${file.rel}`);
+        this.addLog('SUCCESS', newVersion.source_path, `Dosya başarıyla yedeklendi [${folderName}]: ${fileName}`);
       } else {
         skipped++;
       }

@@ -5,7 +5,6 @@ import { OverviewTab } from './components/OverviewTab';
 import { SettingsTab } from './components/SettingsTab';
 import { VersionsTab } from './components/VersionsTab';
 import { LogsTab } from './components/LogsTab';
-import { TestSuiteTab } from './components/TestSuiteTab';
 import { RestoreModal } from './components/RestoreModal';
 import { FolderPickerModal } from './components/FolderPickerModal';
 import { SystemTrayModal } from './components/SystemTrayModal';
@@ -229,6 +228,21 @@ export default function App() {
     refreshData();
   };
 
+  const handleDeleteVersion = async (id: number) => {
+    await tauriBridge.deleteFileVersion(id);
+    refreshData();
+  };
+
+  const handleClearAllVersions = async () => {
+    await tauriBridge.clearAllFileVersions();
+    refreshData();
+  };
+
+  const handleCleanOldVersions = async () => {
+    await tauriBridge.cleanOldVersions();
+    refreshData();
+  };
+
   const handleSelectFolderFromPicker = async (path: string) => {
     if (folderPickerMode === 'source') {
       await handleAddFolder(path);
@@ -298,14 +312,15 @@ export default function App() {
           <VersionsTab
             versions={versions}
             onOpenRestoreModal={setRestoreModalVersion}
+            onDeleteVersion={handleDeleteVersion}
+            onClearAllVersions={handleClearAllVersions}
+            onCleanOldVersions={handleCleanOldVersions}
           />
         )}
 
         {currentTab === 'logs' && (
           <LogsTab logs={logs} onClearLogs={handleClearLogs} />
         )}
-
-        {currentTab === 'tests' && <TestSuiteTab />}
       </main>
 
       {/* Modals */}

@@ -57,12 +57,6 @@ export const TopNav: React.FC<TopNavProps> = ({
       badge: errorCount > 0 ? `${errorCount} hata` : null,
       badgeAlert: errorCount > 0,
     },
-    {
-      id: 'tests' as TabType,
-      label: '12 Test',
-      icon: CheckCircle2,
-      badge: null,
-    },
   ];
 
   return (

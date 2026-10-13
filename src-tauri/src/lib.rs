@@ -213,6 +213,24 @@ fn restore_file_version(req: RestoreRequest, state: State<'_, AppState>) -> Resu
     BackupEngine::restore_version(&db, &req)
 }
 
+#[tauri::command]
+fn delete_file_version(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_file_version(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn clear_all_file_versions(state: State<'_, AppState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.clear_all_file_versions().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn clean_old_versions(keep_last: Option<i64>, state: State<'_, AppState>) -> Result<usize, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.clean_old_versions(keep_last.unwrap_or(1)).map_err(|e| e.to_string())
+}
+
 fn get_disk_space_internal(path_str: &str) -> (f64, f64) {
     let sys = sysinfo::Disks::new_with_refreshed_list();
     let target_path = std::path::Path::new(path_str);
@@ -353,6 +371,9 @@ pub fn run() {
             clear_logs,
             get_file_versions,
             restore_file_version,
+            delete_file_version,
+            clear_all_file_versions,
+            clean_old_versions,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri uygulaması başlatılırken hata oluştu!");

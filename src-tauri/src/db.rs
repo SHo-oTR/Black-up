@@ -393,6 +393,30 @@ impl Database {
         Ok(list)
     }
 
+    pub fn delete_file_version(&self, version_id: i64) -> Result<()> {
+        self.conn.execute("DELETE FROM file_versions WHERE id = ?1", params![version_id])?;
+        Ok(())
+    }
+
+    pub fn clear_all_file_versions(&self) -> Result<()> {
+        self.conn.execute("DELETE FROM file_versions", [])?;
+        Ok(())
+    }
+
+    pub fn clean_old_versions(&self, keep_last: i64) -> Result<usize> {
+        let keep = if keep_last < 1 { 1 } else { keep_last };
+        let count = self.conn.execute(
+            "DELETE FROM file_versions WHERE id NOT IN (
+                SELECT id FROM (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY file_record_id ORDER BY version_number DESC) as rn
+                    FROM file_versions
+                ) WHERE rn <= ?1
+            )",
+            params![keep],
+        )?;
+        Ok(count)
+    }
+
     pub fn add_log(&self, level: &str, source_path: Option<&str>, message: &str) -> Result<()> {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         self.conn.execute(

@@ -37,7 +37,8 @@ fn test_01_initial_backup_copies_all_files() {
     assert_eq!(res.skipped_files, 0);
 
     // Verify backup files exist in target
-    let target_file1 = temp_target.path().join(format!("kaynak_{}", src_id)).join("guncel").join("Rapor.docx");
+    let src_folder_name = temp_src.path().file_name().unwrap();
+    let target_file1 = temp_target.path().join(src_folder_name).join("Rapor.docx");
     assert!(target_file1.exists(), "İlk taramada dosya hedefe kopyalanmalıydı");
 }
 
@@ -161,7 +162,8 @@ fn test_05_deleted_source_file_preserves_backup() {
     let engine = BackupEngine::new();
     engine.run_backup(&db, &settings, &sources, |_| {}).unwrap();
 
-    let target_backup = temp_target.path().join(format!("kaynak_{}", src_id)).join("guncel").join("SilinecekDosya.txt");
+    let src_folder_name = temp_src.path().file_name().unwrap();
+    let target_backup = temp_target.path().join(src_folder_name).join("SilinecekDosya.txt");
     assert!(target_backup.exists());
 
     // User deletes source file
@@ -217,8 +219,8 @@ fn test_06_same_filename_in_different_sources_do_not_collide() {
     let engine = BackupEngine::new();
     engine.run_backup(&db, &settings, &sources, |_| {}).unwrap();
 
-    let target1 = temp_target.path().join(format!("kaynak_{}", src1_id)).join("guncel").join("Proje.doc");
-    let target2 = temp_target.path().join(format!("kaynak_{}", src2_id)).join("guncel").join("Proje.doc");
+    let target1 = temp_target.path().join(temp_src1.path().file_name().unwrap()).join("Proje.doc");
+    let target2 = temp_target.path().join(temp_src2.path().file_name().unwrap()).join("Proje.doc");
 
     assert!(target1.exists());
     assert!(target2.exists());
