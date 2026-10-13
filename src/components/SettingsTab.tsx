@@ -11,6 +11,9 @@ import {
   Shield,
   Layers,
   Info,
+  Folder,
+  RefreshCw,
+  Square,
 } from 'lucide-react';
 import { AppSettings, SourceFolder } from '../types';
 
@@ -22,6 +25,10 @@ interface SettingsTabProps {
   onRemoveFolder: (id: number) => Promise<void>;
   onClearFolders: () => Promise<void>;
   onOpenFolderPicker: () => void;
+  onOpenTargetPicker: () => void;
+  onStartManualBackup?: () => void;
+  isScanning?: boolean;
+  onCancelBackup?: () => void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -32,6 +39,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onRemoveFolder,
   onClearFolders,
   onOpenFolderPicker,
+  onOpenTargetPicker,
+  onStartManualBackup,
+  isScanning = false,
+  onCancelBackup,
 }) => {
   const [formData, setFormData] = useState<AppSettings>({ ...settings });
   const [newPathInput, setNewPathInput] = useState('');
@@ -47,6 +58,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   );
 
   const intervalPresets = [1, 5, 10, 15, 30, 60];
+
+  const quickSourceSuggestions = [
+    { label: 'Belgelerim', path: 'C:\\Users\\Kullanici\\Documents' },
+    { label: 'Masaüstü', path: 'C:\\Users\\Kullanici\\Desktop' },
+    { label: 'Muhasebe & Mali İşler', path: 'C:\\Sirket_Verileri\\Muhasebe_2026' },
+    { label: 'Yazılım Projeleri', path: 'C:\\Projeler\\Kaynak_Kodlar' },
+  ];
+
+  const quickTargetSuggestions = [
+    { label: 'D: Kurumsal Yedekler (Önerilen)', path: 'D:\\Kurumsal_Yedekler' },
+    { label: 'E: Harici USB / SSD Disk', path: 'E:\\Harici_Yedekler' },
+    { label: 'Ağ Paylaşımı (NAS Sunucu)', path: '\\\\192.168.1.100\\Yedek_Alani' },
+    { label: 'C: Güvenli Depo', path: 'C:\\Guvenli_Yedek_Deposu' },
+  ];
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,13 +91,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
-  const handleAddCustomPath = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddCustomPath = async (pathToAdd?: string) => {
     setPathError(null);
-    if (!newPathInput.trim()) return;
+    const targetPath = pathToAdd || newPathInput.trim();
+    if (!targetPath) return;
 
     try {
-      await onAddFolder(newPathInput.trim());
+      await onAddFolder(targetPath);
       setNewPathInput('');
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -93,6 +118,46 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Kaynak klasörleri yönetin, hedef konumu belirleyin ve otomatik tarama frekansını yapılandırın.
         </p>
+      </div>
+
+      {/* Manual Backup Action Card (Requested by user) */}
+      <div className="p-4 sm:p-5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 via-white to-indigo-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-indigo-950/20 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <RefreshCw className={`w-4 h-4 text-indigo-600 dark:text-indigo-400 ${isScanning ? 'animate-spin' : ''}`} />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Manuel Yedekleme Başlat
+            </h2>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-medium">
+              Anında Senkronizasyon
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+            Periyodik süreyi beklemeden tüm aktif kaynak klasörlerdeki yeni ve değişen dosyaları anında tespit edip hedef alana yedekler.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {isScanning ? (
+            <button
+              type="button"
+              onClick={onCancelBackup}
+              className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+            >
+              <Square className="w-3.5 h-3.5 fill-white" />
+              <span>İşlemi İptal Et</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onStartManualBackup}
+              className="px-5 py-2.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-indigo-500/20 active:scale-95"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Şimdi Yedekle</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
@@ -121,12 +186,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             Seçilen klasörler ve tüm alt klasörleri taranır. Kaynak dosyalar hiçbir durumda silinmez veya değiştirilmez.
           </p>
 
-          {/* Quick Add Bar */}
+          {/* Quick Add Bar with Browse Button */}
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
                 type="text"
-                placeholder="Örn: C:\Kullanicilar\Ahmet\Belgeler veya ağ yolu \\Sunucu\Paylasim"
+                placeholder="Örn: C:\Users\Kullanici\Documents veya ağ yolu \\Sunucu\Paylasim"
                 value={newPathInput}
                 onChange={e => {
                   setNewPathInput(e.target.value);
@@ -135,21 +200,40 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
-            <button
-              type="button"
-              onClick={handleAddCustomPath}
-              className="px-3.5 py-2 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center gap-1.5 shrink-0"
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-              <span>Klasör Ekle</span>
-            </button>
+
             <button
               type="button"
               onClick={onOpenFolderPicker}
-              className="px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors shrink-0"
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center gap-1.5 shrink-0"
+              title="Bilgisayarınızdaki klasörleri görsel olarak seçin"
             >
-              Gözat...
+              <Folder className="w-3.5 h-3.5" />
+              <span>Gözat...</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => handleAddCustomPath()}
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center gap-1.5 shrink-0 shadow-xs"
+            >
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>Listeye Ekle</span>
+            </button>
+          </div>
+
+          {/* Quick Suggestion Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            <span className="text-[11px] text-slate-400 mr-1">Hızlı Ekle:</span>
+            {quickSourceSuggestions.map(item => (
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => handleAddCustomPath(item.path)}
+                className="text-[11px] font-medium px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-700 transition-colors"
+              >
+                + {item.label}
+              </button>
+            ))}
           </div>
 
           {pathError && (
@@ -195,7 +279,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
             {sources.length === 0 && (
               <div className="py-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg">
-                Henüz kayıtlı kaynak klasör bulunmuyor. Yukarıdan klasör ekleyin.
+                Henüz kayıtlı kaynak klasör bulunmuyor. Yukarıdaki "Gözat..." butonu veya hızlı butonlarla klasör ekleyin.
               </div>
             )}
           </div>
@@ -224,9 +308,35 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               onChange={e => setFormData({ ...formData, target_directory: e.target.value })}
               className="flex-1 px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
+            <button
+              type="button"
+              onClick={onOpenTargetPicker}
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center gap-1.5 shrink-0"
+            >
+              <Folder className="w-3.5 h-3.5" />
+              <span>Gözat...</span>
+            </button>
           </div>
 
-          {/* Security warning prompt compliance */}
+          {/* Quick Target Suggestions */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            <span className="text-[11px] text-slate-400 mr-1">Önerilen Hedefler:</span>
+            {quickTargetSuggestions.map(item => (
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => setFormData({ ...formData, target_directory: item.path })}
+                className={`text-[11px] font-medium px-2 py-1 rounded-md border transition-colors ${
+                  formData.target_directory === item.path
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 hover:text-indigo-600 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
           <div className="p-3 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 text-xs text-indigo-900 dark:text-indigo-200 flex items-start gap-2.5">
             <Info className="w-4 h-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
             <div>
@@ -255,39 +365,40 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               const isSelected = !isCustomInterval && formData.scan_interval_minutes === preset;
               return (
                 <button
-                  type="button"
                   key={preset}
+                  type="button"
                   onClick={() => {
                     setIsCustomInterval(false);
                     setFormData({ ...formData, scan_interval_minutes: preset });
                   }}
-                  className={`py-2 px-3 text-xs font-medium rounded-lg border transition-colors ${
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold border transition-all text-center ${
                     isSelected
-                      ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 font-semibold'
-                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-xs'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-800/50'
                   }`}
                 >
-                  {preset} Dakika
+                  {preset} dk
                 </button>
               );
             })}
+
             <button
               type="button"
               onClick={() => setIsCustomInterval(true)}
-              className={`py-2 px-3 text-xs font-medium rounded-lg border transition-colors ${
+              className={`py-2 px-3 rounded-lg text-xs font-semibold border transition-all text-center ${
                 isCustomInterval
-                  ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 font-semibold'
-                  : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-xs'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-800/50'
               }`}
             >
-              Özel...
+              Özel Süre
             </button>
           </div>
 
           {isCustomInterval && (
             <div className="flex items-center gap-3 pt-2">
               <label className="text-xs text-slate-600 dark:text-slate-400">
-                Özel dakika değeri:
+                Özel dakika girin (1 - 1440):
               </label>
               <input
                 type="number"
@@ -302,68 +413,71 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </div>
 
-        {/* Section 4: Versioning & Advanced Engine Options */}
+        {/* Section 4: Advanced Engine Settings */}
         <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Sürüm Politikası ve Güvenlik Seçenekleri
+              Gelişmiş Güvenlik ve Sürüm Politikası
             </h2>
           </div>
 
-          <div className="space-y-4">
-            {/* Version retention slider/number */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  Dosya Başına Azami Sürüm Sayısı
+          <div className="space-y-3">
+            {/* Max versions per file */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="space-y-0.5">
+                <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Dosya Başına Azami Sürüm Sayısı</span>
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Değişen dosyaların önceki sürümlerini saklar. Eskiler bu limiti aşınca otomatik elenir.
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Her dosya için saklanacak maksimum eski sürüm adedi (Aşıldığında en eski sürüm silinir)
                 </div>
               </div>
-              <input
-                type="number"
-                min={1}
-                max={50}
-                value={formData.max_versions_per_file}
-                onChange={e =>
-                  setFormData({
-                    ...formData,
-                    max_versions_per_file: Math.max(1, parseInt(e.target.value) || 1),
-                  })
-                }
-                className="w-24 px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={formData.max_versions_per_file}
+                  onChange={e =>
+                    setFormData({
+                      ...formData,
+                      max_versions_per_file: Math.max(1, parseInt(e.target.value) || 5),
+                    })
+                  }
+                  className="w-20 px-2.5 py-1 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-right"
+                />
+                <span className="text-xs text-slate-400 font-mono">adet</span>
+              </div>
             </div>
 
-            {/* Checksum SHA-256 Toggle */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>SHA-256 İçerik Doğrulaması</span>
+            {/* SHA-256 Checksum toggle */}
+            <label className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer">
+              <div className="space-y-0.5">
+                <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  SHA-256 Sağlama Doğrulaması (Checksum)
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Boyut ve mtime dışında şüpheli durumlarda dosya hash kontrolü uygula.
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Kopyalama sonrasında dosya içeriğinin doğruluğunu kriptografik hash ile garanti et
                 </div>
               </div>
               <input
                 type="checkbox"
                 checked={formData.verify_checksum}
                 onChange={e => setFormData({ ...formData, verify_checksum: e.target.checked })}
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-slate-300"
               />
-            </div>
+            </label>
 
-            {/* Windows Startup Toggle */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  Windows Açılışında Başlat
+            {/* Run on Windows Startup */}
+            <label className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60 cursor-pointer">
+              <div className="space-y-0.5">
+                <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  Windows Başlangıcında Otomatik Başlat
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Kullanıcı Windows oturumu açtığında uygulama arka planda başlasın.
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Bilgisayar açıldığında arka planda sessizce korumayı devreye sok
                 </div>
               </div>
               <input
@@ -372,52 +486,64 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 onChange={e =>
                   setFormData({ ...formData, run_on_windows_startup: e.target.checked })
                 }
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-slate-300"
               />
-            </div>
+            </label>
 
-            {/* Minimize to tray toggle */}
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            {/* Minimize to Tray */}
+            <label className="flex items-center justify-between py-2 cursor-pointer">
+              <div className="space-y-0.5">
+                <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
                   Kapatıldığında Sistem Tepsisine Küçült
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Pencere kapatıldığında arka planda çalışmaya devam eder (Tauri 2 Tray).
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Çarpı (X) tuşuna basıldığında programı kapatmak yerine arka planda çalıştırmaya devam et
                 </div>
               </div>
               <input
                 type="checkbox"
                 checked={formData.minimize_to_tray}
                 onChange={e => setFormData({ ...formData, minimize_to_tray: e.target.checked })}
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-slate-300"
               />
-            </div>
+            </label>
           </div>
         </div>
 
-        {/* Save Bar */}
-        <div className="flex items-center justify-between pt-2">
-          <div>
-            {saveStatus === 'success' && (
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Ayarlar SQLite veritabanına başarıyla kaydedildi!</span>
-              </span>
-            )}
-            {saveStatus === 'error' && (
-              <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">
-                Kayıt sırasında bir hata oluştu.
-              </span>
-            )}
-          </div>
+        {/* Submit Save Button */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          {saveStatus === 'success' && (
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Ayarlar başarıyla kaydedildi!</span>
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 font-semibold animate-in fade-in">
+              <AlertCircle className="w-4 h-4" />
+              <span>Kayıt sırasında bir hata oluştu!</span>
+            </span>
+          )}
+
+          {onStartManualBackup && (
+            <button
+              type="button"
+              onClick={onStartManualBackup}
+              disabled={isScanning}
+              className="px-4 py-2.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
+              <span>{isScanning ? 'Yedekleniyor...' : 'Şimdi Yedekle'}</span>
+            </button>
+          )}
 
           <button
             type="submit"
-            className="px-5 py-2.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center gap-1.5 shadow-xs"
+            disabled={saveStatus === 'saving'}
+            className="px-5 py-2.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
           >
             <Save className="w-4 h-4" />
-            <span>Ayarları Kaydet</span>
+            <span>{saveStatus === 'saving' ? 'Kaydediliyor...' : 'Tüm Ayarları Kaydet'}</span>
           </button>
         </div>
       </form>

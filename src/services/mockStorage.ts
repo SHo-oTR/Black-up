@@ -274,7 +274,7 @@ class MockStorageService {
 
     return {
       last_scan_time: lastScanLog ? lastScanLog.timestamp : '2026-03-13 10:00:12',
-      next_scan_in_seconds: settings.auto_start_active ? 180 : 0,
+      next_scan_in_seconds: settings.auto_start_active ? settings.scan_interval_minutes * 60 : 0,
       total_backed_up_files: versions.length,
       total_backed_up_bytes: totalBytes,
       pending_changes: 0,

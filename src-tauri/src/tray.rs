@@ -11,7 +11,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let sep1 = MenuItem::with_id(app, "sep1", "---", false, None::<&str>)?;
     let toggle_auto_item = MenuItem::with_id(app, "toggle_auto", "Otomatik Yedeklemeyi Başlat / Durdur", true, None::<&str>)?;
     let sep2 = MenuItem::with_id(app, "sep2", "---", false, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Çıkış", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Çıkış (Programı Kapat)", true, None::<&str>)?;
 
     let menu = Menu::with_items(
         app,
@@ -22,7 +22,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let _tray = TrayIconBuilder::with_id("main-tray")
         .tooltip("Rust AutoBackup - Arka Planda Aktif")
         .menu(&menu)
-        .show_menu_on_left_click(false)
+        .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {
@@ -32,36 +32,26 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             "backup_now" => {
-                // Emit frontend event to trigger manual backup
                 let _ = app.emit("tray-trigger-backup", ());
             }
             "toggle_auto" => {
                 let _ = app.emit("tray-toggle-auto", ());
             }
             "quit" => {
-                app.exit(0);
+                std::process::exit(0);
             }
             _ => {}
         })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
+        .on_tray_icon_event(|tray, event| match event {
+            TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } => {
                 let app = tray.app_handle();
                 if let Some(window) = app.get_webview_window("main") {
-                    let is_visible = window.is_visible().unwrap_or(false);
-                    if is_visible {
-                        let _ = window.hide();
-                    } else {
-                        let _ = window.show();
-                        let _ = window.unminimize();
-                        let _ = window.set_focus();
-                    }
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
                 }
             }
+            _ => {}
         })
         .build(app)?;
 
