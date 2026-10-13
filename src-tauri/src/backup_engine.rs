@@ -205,6 +205,8 @@ impl BackupEngine {
             error_files: 0,
             current_file: String::new(),
             percent: 0.0,
+        };
+
         let mut active_paths_per_source: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
         for src in source_folders {
             if src.enabled {
