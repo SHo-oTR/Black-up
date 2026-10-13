@@ -235,6 +235,31 @@ export const tauriBridge = {
     return mockStorage.cleanOldVersions(keepLast);
   },
 
+  async analyzeAndReconcileTarget(): Promise<number> {
+    if (isTauriEnvironment()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        return await invoke<number>('analyze_and_reconcile_target');
+      } catch (err) {
+        console.warn('Tauri invoke error, falling back to mock storage:', err);
+      }
+    }
+    return mockStorage.analyzeAndReconcileTarget();
+  },
+
+  async resetBackupCache(): Promise<void> {
+    if (isTauriEnvironment()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('reset_backup_cache');
+        return;
+      } catch (err) {
+        console.warn('Tauri invoke error, falling back to mock storage:', err);
+      }
+    }
+    mockStorage.resetBackupCache();
+  },
+
   async restoreFileVersion(req: RestoreRequest): Promise<RestoreResult> {
     if (isTauriEnvironment()) {
       try {

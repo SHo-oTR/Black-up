@@ -29,6 +29,8 @@ interface SettingsTabProps {
   onStartManualBackup?: () => void;
   isScanning?: boolean;
   onCancelBackup?: () => void;
+  onAnalyzeTarget?: () => Promise<number>;
+  onResetBackupCache?: () => Promise<void>;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -43,16 +45,52 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onStartManualBackup,
   isScanning = false,
   onCancelBackup,
+  onAnalyzeTarget,
+  onResetBackupCache,
 }) => {
   const [formData, setFormData] = useState<AppSettings>({ ...settings });
   const [newPathInput, setNewPathInput] = useState('');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [pathError, setPathError] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [customMinutes, setCustomMinutes] = useState<number>(
     [1, 5, 10, 15, 30, 60].includes(settings.scan_interval_minutes)
       ? 5
       : settings.scan_interval_minutes
   );
+
+  const handleRunTargetAnalysis = async () => {
+    if (!onAnalyzeTarget) return;
+    try {
+      setIsSyncing(true);
+      setSyncStatus(null);
+      const count = await onAnalyzeTarget();
+      setSyncStatus(`Hedef başarıyla analiz edildi: ${count} kayıt hedef klasör ile senkronize edildi.`);
+      setTimeout(() => setSyncStatus(null), 5000);
+    } catch {
+      setSyncStatus('Hedef analizi sırasında hata oluştu.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleResetCache = async () => {
+    if (!onResetBackupCache) return;
+    if (!window.confirm('Veritabanındaki tarama önbelleği sıfırlanacak. Bu işlem mevcut hedefteki dosyalarınızı silmez, ancak bir sonraki taramada tüm kaynak dosyaların baştan hedefle doğrulanıp eksiklerin tamamlanmasını sağlar. Onaylıyor musunuz?')) {
+      return;
+    }
+    try {
+      setIsSyncing(true);
+      await onResetBackupCache();
+      setSyncStatus('Eski veritabanı önbelleği temizlendi! Bir sonraki yedekleme hedefi baştan analiz edecektir.');
+      setTimeout(() => setSyncStatus(null), 5000);
+    } catch {
+      setSyncStatus('Önbellek sıfırlanırken hata oluştu.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const [isCustomInterval, setIsCustomInterval] = useState<boolean>(
     ![1, 5, 10, 15, 30, 60].includes(settings.scan_interval_minutes)
   );
@@ -120,44 +158,82 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </p>
       </div>
 
-      {/* Manual Backup Action Card (Requested by user) */}
-      <div className="p-4 sm:p-5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 via-white to-indigo-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-indigo-950/20 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <RefreshCw className={`w-4 h-4 text-indigo-600 dark:text-indigo-400 ${isScanning ? 'animate-spin' : ''}`} />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-              Manuel Yedekleme Başlat
-            </h2>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-medium">
-              Anında Senkronizasyon
-            </span>
+      {/* Manual Backup & Target Analysis Action Card */}
+      <div className="p-4 sm:p-5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 via-white to-indigo-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-indigo-950/20 shadow-xs flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <RefreshCw className={`w-4 h-4 text-indigo-600 dark:text-indigo-400 ${isScanning || isSyncing ? 'animate-spin' : ''}`} />
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Hedef Analizi ile Yedekleme
+              </h2>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-medium">
+                Akıllı Senkronizasyon
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+              Yedekleme hedefini analiz eder, hedefteki gerçek dosyalar ile veritabanını eşler. Hedefte silinen veya eksik olan dosyaları tespit edip &quot;atlanan&quot; olarak değil, otomatik olarak yeniden yedekler.
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
-            Periyodik süreyi beklemeden tüm aktif kaynak klasörlerdeki yeni ve değişen dosyaları anında tespit edip hedef alana yedekler.
-          </p>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {isScanning ? (
+              <button
+                type="button"
+                onClick={onCancelBackup}
+                className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+              >
+                <Square className="w-3.5 h-3.5 fill-white" />
+                <span>İşlemi İptal Et</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onStartManualBackup}
+                className="px-5 py-2.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-indigo-500/20 active:scale-95"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Şimdi Yedekle</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {isScanning ? (
+        {/* Target Analysis & Database Sync Quick Tools */}
+        <div className="pt-3 border-t border-indigo-100 dark:border-indigo-950 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={onCancelBackup}
-              className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+              disabled={isScanning || isSyncing}
+              onClick={handleRunTargetAnalysis}
+              className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-indigo-700 dark:text-indigo-300 font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              <Square className="w-3.5 h-3.5 fill-white" />
-              <span>İşlemi İptal Et</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>Hedefi Analiz Et ve Eşitle</span>
             </button>
-          ) : (
+
             <button
               type="button"
-              onClick={onStartManualBackup}
-              className="px-5 py-2.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-indigo-500/20 active:scale-95"
+              disabled={isScanning || isSyncing}
+              onClick={handleResetCache}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className="w-4 h-4" />
-              <span>Şimdi Yedekle</span>
+              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+              <span>Eski Veritabanı Kayıtlarını Sıfırla</span>
             </button>
-          )}
+          </div>
+
+          <div className="text-[11px] text-slate-400 dark:text-slate-500">
+            Hedef disk doğrulaması her yedeklemede otomatik çalışır
+          </div>
         </div>
+
+        {syncStatus && (
+          <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span>{syncStatus}</span>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">

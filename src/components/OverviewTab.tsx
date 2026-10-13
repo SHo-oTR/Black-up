@@ -150,7 +150,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           {/* Quick Info Strip Below Button */}
-          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 w-full grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 w-full grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="flex flex-col items-center p-2 rounded-lg bg-slate-50/60 dark:bg-slate-800/40">
               <span className="text-slate-400 dark:text-slate-500 text-[11px]">Sonraki Tarama</span>
               <span className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5">
@@ -161,7 +161,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
 
             <div className="flex flex-col items-center p-2 rounded-lg bg-slate-50/60 dark:bg-slate-800/40">
-              <span className="text-slate-400 dark:text-slate-500 text-[11px]">Aktif Kaynak Klasörler</span>
+              <span className="text-slate-400 dark:text-slate-500 text-[11px]">Aktif Kaynaklar</span>
               <span className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5">
                 {enabledSourcesCount} / {sources.length} Klasör
               </span>
@@ -169,8 +169,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
             <div className="flex flex-col items-center p-2 rounded-lg bg-slate-50/60 dark:bg-slate-800/40">
               <span className="text-slate-400 dark:text-slate-500 text-[11px]">Hedef Depolama</span>
-              <span className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5 truncate max-w-[180px]">
+              <span className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5 truncate max-w-[140px]">
                 {stats.target_disk_free_gb.toFixed(1)} GB Boş Alan
+              </span>
+            </div>
+
+            <div className="flex flex-col items-center p-2 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/40">
+              <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">Hedef Analizi</span>
+              <span className="font-bold text-emerald-700 dark:text-emerald-300 mt-0.5 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Akıllı Eşitleme</span>
               </span>
             </div>
           </div>

@@ -337,6 +337,27 @@ class MockStorageService {
     return removedCount;
   }
 
+  analyzeAndReconcileTarget(): number {
+    const settings = this.getSettings();
+    const versions = this.getFileVersions();
+    // Simulate target analysis: verify records in target and reconcile
+    this.addLog(
+      'INFO',
+      null,
+      `Hedef dizin analiz edildi [${settings.target_directory}]: Hedef kayıtları ve veritabanı senkronize edildi.`
+    );
+    return versions.length;
+  }
+
+  resetBackupCache(): void {
+    localStorage.removeItem(STORAGE_KEYS.VERSIONS);
+    this.addLog(
+      'INFO',
+      null,
+      'Veritabanı tarama önbelleği temizlendi. Bir sonraki tarama sıfırdan hedef analiziyle çalışacaktır.'
+    );
+  }
+
   getDashboardStats(): DashboardStats {
     const settings = this.getSettings();
     const versions = this.getFileVersions();
@@ -379,7 +400,15 @@ class MockStorageService {
     const sources = this.getSourceFolders().filter(s => s.enabled);
     const settings = this.getSettings();
 
-    this.addLog('INFO', null, 'Manuel / periyodik yedekleme işlemi başlatıldı.');
+    this.addLog('INFO', null, 'Yedekleme ve hedef analizi işlemi başlatıldı.');
+
+    // Analyze target directory & reconcile with database
+    const existingVersions = this.getFileVersions();
+    this.addLog(
+      'INFO',
+      null,
+      `Hedef analiz edildi [${settings.target_directory}]: Hedef kayıtları ve veritabanı eşlendi. Eksik/değişen dosyalar doğrulanıyor.`
+    );
 
     const mockFiles = [
       { source_id: 1, rel: 'Finansal_Raporlar_Q1.xlsx', size: 340200 },
@@ -416,17 +445,22 @@ class MockStorageService {
       }
 
       // Small async delay to show smooth real-time progress
-      await new Promise(r => setTimeout(r, 350));
+      await new Promise(r => setTimeout(r, 300));
 
-      const isNewOrChanged = i % 2 === 0;
-      if (isNewOrChanged) {
+      const sourceFolder = sources.find(s => s.id === file.source_id) || sources[0];
+      const sourceBase = sourceFolder ? sourceFolder.path : 'C:\\Sirket_Belgeleri';
+      const folderName = sourceBase.split(/[/\\]/).filter(Boolean).pop() || 'Belgeler';
+      const fileName = file.rel.split(/[/\\]/).pop() || file.rel;
+
+      // Target reconciliation check:
+      // Does target actually have this version backed up?
+      const targetHasFile = existingVersions.some(v => v.file_name === fileName);
+
+      // If target is missing file OR file has changed, copy it!
+      const needsBackup = !targetHasFile || i % 2 === 0;
+
+      if (needsBackup) {
         copied++;
-        // Add new version with real folder and file names
-        const sourceFolder = sources.find(s => s.id === file.source_id) || sources[0];
-        const sourceBase = sourceFolder ? sourceFolder.path : 'C:\\Sirket_Belgeleri';
-        const folderName = sourceBase.split(/[/\\]/).filter(Boolean).pop() || 'Belgeler';
-        const fileName = file.rel.split(/[/\\]/).pop() || file.rel;
-
         const versions = this.getFileVersions();
         const nextId = Date.now() + i;
         const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -449,14 +483,15 @@ class MockStorageService {
         };
         versions.unshift(newVersion);
         localStorage.setItem(STORAGE_KEYS.VERSIONS, JSON.stringify(versions));
-        this.addLog('SUCCESS', newVersion.source_path, `Dosya başarıyla yedeklendi [${folderName}]: ${fileName}`);
+        const reason = !targetHasFile ? 'Hedefte dosya bulunamadı (Hedef analizi)' : 'Güncellenmiş dosya';
+        this.addLog('SUCCESS', newVersion.source_path, `Dosya başarıyla yedeklendi [${reason}] [${folderName}]: ${fileName}`);
       } else {
         skipped++;
       }
     }
 
     this.isScanning = false;
-    this.addLog('SUCCESS', null, `Yedekleme tamamlandı. Taranan: ${total}, Kopyalanan: ${copied}, Değişmeyen/Atlanan: ${skipped}, Hata: 0`);
+    this.addLog('SUCCESS', null, `Yedekleme ve hedef analizi tamamlandı. Taranan: ${total}, Kopyalanan: ${copied}, Değişmeyen/Atlanan: ${skipped}, Hata: 0`);
   }
 
   cancelBackup(): void {

@@ -231,6 +231,23 @@ fn clean_old_versions(keep_last: Option<i64>, state: State<'_, AppState>) -> Res
     db.clean_old_versions(keep_last.unwrap_or(1)).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn analyze_and_reconcile_target(state: State<'_, AppState>) -> Result<usize, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let settings = db.get_settings().map_err(|e| e.to_string())?;
+    let sources = db.get_source_folders().map_err(|e| e.to_string())?;
+    let target_dir = std::path::Path::new(&settings.target_directory);
+    db.reconcile_target_with_database(target_dir, &sources).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn reset_backup_cache(state: State<'_, AppState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.reset_backup_cache().map_err(|e| e.to_string())?;
+    let _ = db.add_log("INFO", None, "Veritabanı tarama önbelleği temizlendi. Bir sonraki tarama sıfırdan hedef analiziyle çalışacaktır.");
+    Ok(())
+}
+
 fn get_disk_space_internal(path_str: &str) -> (f64, f64) {
     let sys = sysinfo::Disks::new_with_refreshed_list();
     let target_path = std::path::Path::new(path_str);
@@ -374,6 +391,8 @@ pub fn run() {
             delete_file_version,
             clear_all_file_versions,
             clean_old_versions,
+            analyze_and_reconcile_target,
+            reset_backup_cache,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri uygulaması başlatılırken hata oluştu!");

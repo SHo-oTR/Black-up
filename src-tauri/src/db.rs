@@ -270,6 +270,45 @@ impl Database {
         Ok(updated)
     }
 
+    /// Analyzes the target directory and reconciles it with SQLite database records.
+    /// If a file is marked 'backed_up' in database but no longer exists in target folder,
+    /// its status is updated to 'target_missing' so it is guaranteed to be re-backed up.
+    pub fn reconcile_target_with_database(&self, target_dir: &Path, sources: &[SourceFolder]) -> Result<usize> {
+        let mut source_map = std::collections::HashMap::new();
+        for s in sources {
+            let folder_name = Path::new(&s.path)
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Yedekler".to_string());
+            source_map.insert(s.id, folder_name);
+        }
+
+        let mut stmt = self.conn.prepare("SELECT id, source_id, relative_path FROM file_records WHERE status = 'backed_up'")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, String>(2)?))
+        })?;
+
+        let mut desynced = 0;
+        for item in rows {
+            let (id, source_id, rel_path) = item?;
+            if let Some(folder_name) = source_map.get(&source_id) {
+                let dest_file = target_dir.join(folder_name).join(&rel_path);
+                if !dest_file.exists() {
+                    self.conn.execute("UPDATE file_records SET status = 'target_missing' WHERE id = ?1", params![id])?;
+                    desynced += 1;
+                }
+            }
+        }
+        Ok(desynced)
+    }
+
+    /// Resets the file scan cache by deleting file_records.
+    /// Forces the next backup to perform a completely fresh scan and synchronization.
+    pub fn reset_backup_cache(&self) -> Result<()> {
+        self.conn.execute("DELETE FROM file_records", [])?;
+        Ok(())
+    }
+
     pub fn add_file_version(
         &self,
         file_record_id: i64,

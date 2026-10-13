@@ -243,6 +243,17 @@ export default function App() {
     refreshData();
   };
 
+  const handleAnalyzeTarget = async (): Promise<number> => {
+    const count = await tauriBridge.analyzeAndReconcileTarget();
+    refreshData();
+    return count;
+  };
+
+  const handleResetBackupCache = async () => {
+    await tauriBridge.resetBackupCache();
+    refreshData();
+  };
+
   const handleSelectFolderFromPicker = async (path: string) => {
     if (folderPickerMode === 'source') {
       await handleAddFolder(path);
@@ -305,6 +316,8 @@ export default function App() {
             onStartManualBackup={handleStartManualBackup}
             isScanning={isScanning}
             onCancelBackup={handleCancelBackup}
+            onAnalyzeTarget={handleAnalyzeTarget}
+            onResetBackupCache={handleResetBackupCache}
           />
         )}
 

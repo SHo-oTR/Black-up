@@ -173,7 +173,20 @@ impl BackupEngine {
             return Err(msg);
         }
 
-        let _ = db.add_log("INFO", None, "Otomatik yedekleme işlemi başlatıldı.");
+        let _ = db.add_log("INFO", None, "Yedekleme ve hedef analizi işlemi başlatıldı.");
+
+        // Analyze target directory against database records (Hedef Analizi)
+        if let Ok(desynced) = db.reconcile_target_with_database(target_dir, source_folders) {
+            if desynced > 0 {
+                let _ = db.add_log(
+                    "INFO",
+                    None,
+                    &format!("Hedef analiz edildi: Hedef diskte eksik olan {} dosya kaydı veritabanı ile eşitlendi ve yeniden kopyalanacak.", desynced),
+                );
+            } else {
+                let _ = db.add_log("INFO", None, "Hedef analiz edildi: Hedef kayıtları ve veritabanı senkronize durumda.");
+            }
+        }
 
         // Step 1: Collect all files across enabled sources
         let mut files_to_scan = Vec::new();
@@ -256,13 +269,28 @@ impl BackupEngine {
             let current_mtime_dt: DateTime<Local> = current_mtime_epoch.into();
             let current_mtime_str = current_mtime_dt.format("%Y-%m-%d %H:%M:%S").to_string();
 
-            // Check against database record
+            // Destination uses source folder name and real file names directly
+            let folder_name = Path::new(&source_root)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Yedekler".to_string());
+
+            let current_dest_path = target_dir
+                .join(&folder_name)
+                .join(&rel_path);
+
+            // Check against database record AND actual destination file on target disk
             let existing_record = db.get_file_record(&file_path_str).ok().flatten();
+            let target_file_exists = current_dest_path.exists();
 
             let mut needs_backup = false;
             let mut reason = "";
 
-            if let Some(ref rec) = existing_record {
+            if !target_file_exists {
+                // If destination file is missing from target, it MUST be backed up!
+                needs_backup = true;
+                reason = "Hedefte dosya bulunamadı (Hedef analizi)";
+            } else if let Some(ref rec) = existing_record {
                 if rec.file_size != current_size {
                     needs_backup = true;
                     reason = "Dosya boyutu değişti";
@@ -272,12 +300,22 @@ impl BackupEngine {
                 } else if rec.status != "backed_up" {
                     needs_backup = true;
                     reason = "Önceki yedekleme tamamlanmamıştı";
-                } else if settings.verify_checksum {
-                    // Optional SHA-256 verification
-                    if let Ok(cur_hash) = Self::compute_sha256(&file_path) {
-                        if rec.sha256_hash.as_deref() != Some(&cur_hash) {
+                } else {
+                    // Target file exists, verify its size matches source file
+                    if let Ok(target_meta) = fs::metadata(&current_dest_path) {
+                        if target_meta.len() != current_size {
                             needs_backup = true;
-                            reason = "SHA-256 içeriği değişti";
+                            reason = "Hedef analizi: Hedefteki dosya boyutu uyuşmuyor";
+                        }
+                    }
+
+                    if !needs_backup && settings.verify_checksum {
+                        // Optional SHA-256 verification
+                        if let Ok(cur_hash) = Self::compute_sha256(&file_path) {
+                            if rec.sha256_hash.as_deref() != Some(&cur_hash) {
+                                needs_backup = true;
+                                reason = "SHA-256 içeriği değişti";
+                            }
                         }
                     }
                 }
@@ -290,17 +328,6 @@ impl BackupEngine {
                 progress.skipped_files += 1;
                 continue;
             }
-
-            // Path construction
-            // Destination uses source folder name and real file names directly
-            let folder_name = Path::new(&source_root)
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "Yedekler".to_string());
-
-            let current_dest_path = target_dir
-                .join(&folder_name)
-                .join(&rel_path);
 
             // Version destination: target / {folder_name} / surumler / {rel_path}_{timestamp}.bak
             let timestamp_suffix = Local::now().format("%Y%m%d_%H%M%S").to_string();
