@@ -205,9 +205,12 @@ impl BackupEngine {
             error_files: 0,
             current_file: String::new(),
             percent: 0.0,
-        };
-
         let mut active_paths_per_source: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
+        for src in source_folders {
+            if src.enabled {
+                active_paths_per_source.insert(src.id, Vec::new());
+            }
+        }
 
         for (source_id, source_root, file_path) in files_to_scan {
             if self.should_cancel.load(Ordering::SeqCst) {
@@ -332,7 +335,7 @@ impl BackupEngine {
             let now_str = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
             // Update SQLite file record
-            if let Ok(record_id) = db.upsert_file_record(
+            match db.upsert_file_record(
                 source_id,
                 &file_path_str,
                 &rel_path,
@@ -342,15 +345,23 @@ impl BackupEngine {
                 "backed_up",
                 sha256_hash.as_deref(),
             ) {
-                // Record new version in SQLite
-                let _ = db.add_file_version(
-                    record_id,
-                    &version_dest_path.to_string_lossy(),
-                    current_size,
-                    &current_mtime_str,
-                    sha256_hash.as_deref(),
-                    settings.max_versions_per_file,
-                );
+                Ok(record_id) => {
+                    // Record new version in SQLite
+                    let _ = db.add_file_version(
+                        record_id,
+                        &version_dest_path.to_string_lossy(),
+                        current_size,
+                        &current_mtime_str,
+                        sha256_hash.as_deref(),
+                        settings.max_versions_per_file,
+                    );
+                }
+                Err(e) => {
+                    progress.error_files += 1;
+                    let msg = format!("Dosya veritabanına kaydedilemedi ({}): {}", rel_path, e);
+                    let _ = db.add_log("ERROR", Some(&file_path_str), &msg);
+                    continue;
+                }
             }
 
             progress.copied_files += 1;

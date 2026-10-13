@@ -1,6 +1,4 @@
-use std::fs::{self, File};
-use std::io::Write;
-use std::path::Path;
+use std::fs;
 use std::time::Duration;
 use tempfile::tempdir;
 
@@ -19,11 +17,12 @@ fn test_01_initial_backup_copies_all_files() {
     fs::write(&file2, b"Mali veriler 2026").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src_id = db.add_source_folder(&temp_src.path().to_string_lossy()).unwrap();
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![SourceFolder {
-        id: 1,
+        id: src_id,
         path: temp_src.path().to_string_lossy().to_string(),
         enabled: true,
         created_at: "2026-01-01".to_string(),
@@ -38,7 +37,7 @@ fn test_01_initial_backup_copies_all_files() {
     assert_eq!(res.skipped_files, 0);
 
     // Verify backup files exist in target
-    let target_file1 = temp_target.path().join("kaynak_1").join("guncel").join("Rapor.docx");
+    let target_file1 = temp_target.path().join(format!("kaynak_{}", src_id)).join("guncel").join("Rapor.docx");
     assert!(target_file1.exists(), "İlk taramada dosya hedefe kopyalanmalıydı");
 }
 
@@ -51,11 +50,12 @@ fn test_02_unchanged_file_is_skipped() {
     fs::write(&file1, b"Sabit icerik degismeyecek").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src_id = db.add_source_folder(&temp_src.path().to_string_lossy()).unwrap();
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![SourceFolder {
-        id: 1,
+        id: src_id,
         path: temp_src.path().to_string_lossy().to_string(),
         enabled: true,
         created_at: "2026-01-01".to_string(),
@@ -83,11 +83,12 @@ fn test_03_file_size_change_triggers_backup() {
     fs::write(&file1, b"satir1").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src_id = db.add_source_folder(&temp_src.path().to_string_lossy()).unwrap();
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![SourceFolder {
-        id: 1,
+        id: src_id,
         path: temp_src.path().to_string_lossy().to_string(),
         enabled: true,
         created_at: "2026-01-01".to_string(),
@@ -113,11 +114,12 @@ fn test_04_mtime_change_triggers_backup() {
     fs::write(&file1, b"ayni_boyut").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src_id = db.add_source_folder(&temp_src.path().to_string_lossy()).unwrap();
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![SourceFolder {
-        id: 1,
+        id: src_id,
         path: temp_src.path().to_string_lossy().to_string(),
         enabled: true,
         created_at: "2026-01-01".to_string(),
@@ -144,11 +146,12 @@ fn test_05_deleted_source_file_preserves_backup() {
     fs::write(&file1, b"Onemli arsiv").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src_id = db.add_source_folder(&temp_src.path().to_string_lossy()).unwrap();
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![SourceFolder {
-        id: 1,
+        id: src_id,
         path: temp_src.path().to_string_lossy().to_string(),
         enabled: true,
         created_at: "2026-01-01".to_string(),
@@ -158,7 +161,7 @@ fn test_05_deleted_source_file_preserves_backup() {
     let engine = BackupEngine::new();
     engine.run_backup(&db, &settings, &sources, |_| {}).unwrap();
 
-    let target_backup = temp_target.path().join("kaynak_1").join("guncel").join("SilinecekDosya.txt");
+    let target_backup = temp_target.path().join(format!("kaynak_{}", src_id)).join("guncel").join("SilinecekDosya.txt");
     assert!(target_backup.exists());
 
     // User deletes source file
@@ -171,7 +174,7 @@ fn test_05_deleted_source_file_preserves_backup() {
     assert!(target_backup.exists(), "Kaynakta silinen dosya hedefte silinmemelidir!");
 
     // Status in db should be source_deleted
-    let rec = db.get_file_record(&file1.to_string_lossy()).unwrap().unwrap();
+    let rec = db.get_file_record(&file1.to_string_lossy()).unwrap().expect("Dosya kaydı veritabanında bulunmalı");
     assert_eq!(rec.status, "source_deleted");
 }
 
@@ -188,19 +191,22 @@ fn test_06_same_filename_in_different_sources_do_not_collide() {
     fs::write(&file_b, b"Kaynak 2 Tamamen Farkli Icerik").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src1_id = db.add_source_folder(&temp_src1.path().to_string_lossy()).unwrap();
+    let src2_id = db.add_source_folder(&temp_src2.path().to_string_lossy()).unwrap();
+
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![
         SourceFolder {
-            id: 1,
+            id: src1_id,
             path: temp_src1.path().to_string_lossy().to_string(),
             enabled: true,
             created_at: "2026-01-01".to_string(),
             is_accessible: true,
         },
         SourceFolder {
-            id: 2,
+            id: src2_id,
             path: temp_src2.path().to_string_lossy().to_string(),
             enabled: true,
             created_at: "2026-01-01".to_string(),
@@ -211,8 +217,8 @@ fn test_06_same_filename_in_different_sources_do_not_collide() {
     let engine = BackupEngine::new();
     engine.run_backup(&db, &settings, &sources, |_| {}).unwrap();
 
-    let target1 = temp_target.path().join("kaynak_1").join("guncel").join("Proje.doc");
-    let target2 = temp_target.path().join("kaynak_2").join("guncel").join("Proje.doc");
+    let target1 = temp_target.path().join(format!("kaynak_{}", src1_id)).join("guncel").join("Proje.doc");
+    let target2 = temp_target.path().join(format!("kaynak_{}", src2_id)).join("guncel").join("Proje.doc");
 
     assert!(target1.exists());
     assert!(target2.exists());
@@ -227,12 +233,13 @@ fn test_07_inaccessible_target_disk_fails_safely() {
     fs::write(&file, b"test").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src_id = db.add_source_folder(&temp_src.path().to_string_lossy()).unwrap();
     let mut settings = AppSettings::default();
     // Non-existent invalid path simulation (disconnected drive)
     settings.target_directory = "Z:\\OlmayanSurucu_9999\\Yedek".to_string();
 
     let sources = vec![SourceFolder {
-        id: 1,
+        id: src_id,
         path: temp_src.path().to_string_lossy().to_string(),
         enabled: true,
         created_at: "2026-01-01".to_string(),
@@ -297,19 +304,22 @@ fn test_11_multiple_folders_scanned_together() {
     fs::write(temp_src2.path().join("f2.txt"), b"2").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src1_id = db.add_source_folder(&temp_src1.path().to_string_lossy()).unwrap();
+    let src2_id = db.add_source_folder(&temp_src2.path().to_string_lossy()).unwrap();
+
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![
         SourceFolder {
-            id: 1,
+            id: src1_id,
             path: temp_src1.path().to_string_lossy().to_string(),
             enabled: true,
             created_at: "2026-01-01".to_string(),
             is_accessible: true,
         },
         SourceFolder {
-            id: 2,
+            id: src2_id,
             path: temp_src2.path().to_string_lossy().to_string(),
             enabled: true,
             created_at: "2026-01-01".to_string(),
@@ -332,11 +342,12 @@ fn test_12_restore_previous_version() {
     fs::write(&file, b"Surum 1 Ilk Metin").unwrap();
 
     let db = Database::new_in_memory().unwrap();
+    let src_id = db.add_source_folder(&temp_src.path().to_string_lossy()).unwrap();
     let mut settings = AppSettings::default();
     settings.target_directory = temp_target.path().to_string_lossy().to_string();
 
     let sources = vec![SourceFolder {
-        id: 1,
+        id: src_id,
         path: temp_src.path().to_string_lossy().to_string(),
         enabled: true,
         created_at: "2026-01-01".to_string(),
@@ -346,16 +357,16 @@ fn test_12_restore_previous_version() {
     let engine = BackupEngine::new();
     engine.run_backup(&db, &settings, &sources, |_| {}).unwrap();
 
-    // Create version 2
+    // Create version 2 with different content
     std::thread::sleep(Duration::from_millis(1100));
     fs::write(&file, b"Surum 2 Degistirilmis Metin").unwrap();
     engine.run_backup(&db, &settings, &sources, |_| {}).unwrap();
 
     // Query versions
     let versions = db.get_all_file_versions().unwrap();
-    assert!(versions.len() >= 2);
+    assert!(versions.len() >= 2, "En az 2 sürüm bulunmalı, bulunan: {}", versions.len());
 
-    let v1 = versions.iter().find(|v| v.version_number == 1).unwrap();
+    let v1 = versions.iter().find(|v| v.version_number == 1).expect("Sürüm 1 bulunmalı");
 
     let restore_path = temp_restore_dir.path().join("Kurtarilan_Sozlesme_v1.pdf");
     let req = RestoreRequest {

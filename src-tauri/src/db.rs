@@ -56,8 +56,7 @@ impl Database {
                 modified_time TEXT NOT NULL,
                 last_backup_time TEXT,
                 status TEXT NOT NULL,
-                sha256_hash TEXT,
-                FOREIGN KEY (source_id) REFERENCES source_folders(id) ON DELETE CASCADE
+                sha256_hash TEXT
             );
 
             CREATE TABLE IF NOT EXISTS file_versions (
@@ -68,8 +67,7 @@ impl Database {
                 file_size INTEGER NOT NULL,
                 modified_time TEXT NOT NULL,
                 backup_time TEXT NOT NULL,
-                sha256_hash TEXT,
-                FOREIGN KEY (file_record_id) REFERENCES file_records(id) ON DELETE CASCADE
+                sha256_hash TEXT
             );
 
             CREATE TABLE IF NOT EXISTS logs (
