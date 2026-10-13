@@ -35,7 +35,11 @@ Write-Host "Rust bulundu: $cargoVer" -ForegroundColor Green
 
 # 3. Ön yüz paketlerinin hazırlanması
 Write-Host "[3/5] Ön yüz bağımlılıkları kuruluyor ve derleniyor..." -ForegroundColor Yellow
+if (Test-Path "package-lock.json") {
+    Remove-Item -Force "package-lock.json"
+}
 npm install --legacy-peer-deps
+npm install --legacy-peer-deps @rolldown/binding-win32-x64-msvc
 npm run build
 Write-Host "Ön yüz derlendi." -ForegroundColor Green
 

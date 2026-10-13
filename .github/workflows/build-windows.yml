@@ -28,8 +28,12 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Bağımlılıkları Yükle
-        run: npm install --legacy-peer-deps
+      - name: Bağımlılıkları Yükle (Windows Native Rolldown)
+        shell: pwsh
+        run: |
+          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
+          npm install --legacy-peer-deps
+          npm install --legacy-peer-deps @rolldown/binding-win32-x64-msvc
 
       - name: Ön Yüzü Derle
         run: npm run build
